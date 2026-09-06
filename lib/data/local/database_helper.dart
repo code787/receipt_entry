@@ -77,14 +77,16 @@ class DatabaseHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute('''
-        ALTER TABLE ${AppConstants.tableReceipts}
-        ADD COLUMN ${AppConstants.colReceiptNumber} TEXT
-      ''');
-      await db.execute('''
-        ALTER TABLE ${AppConstants.tableReceipts}
-        ADD COLUMN ${AppConstants.colReceiptPhoto} TEXT
-      ''');
+      await _addColumnIfNotExists(db, AppConstants.tableReceipts, AppConstants.colReceiptNumber, 'TEXT');
+      await _addColumnIfNotExists(db, AppConstants.tableReceipts, AppConstants.colReceiptPhoto, 'TEXT');
+    }
+  }
+
+  Future<void> _addColumnIfNotExists(Database db, String table, String column, String type) async {
+    final result = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = result.any((col) => col['name'] == column);
+    if (!exists) {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $type');
     }
   }
 
