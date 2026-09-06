@@ -7,10 +7,6 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
-env:
-  PUB_HOSTED_URL: https://pub.flutter-io.cn
-  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
-
 jobs:
   build:
     name: Build Android APK
@@ -39,6 +35,12 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Configure Flutter mirrors
+        run: |
+          flutter config --enable-web
+          echo "PUB_HOSTED_URL=https://pub.flutter-io.cn" >> $GITHUB_ENV
+          echo "FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn" >> $GITHUB_ENV
+
       - name: Configure Gradle TLS
         run: |
           echo "systemProp.https.protocols=TLSv1.2,TLSv1.3" >> android/gradle.properties
@@ -46,8 +48,11 @@ jobs:
 
       - name: Get Flutter dependencies
         run: |
-          for i in 1 2 3; do
-            flutter pub get && break || sleep 10
+          export PUB_HOSTED_URL=https://pub.flutter-io.cn
+          export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+          for i in 1 2 3 4 5; do
+            echo "Attempt $i/5: flutter pub get"
+            flutter pub get --verbose && break || { echo "Failed, waiting 15s..."; sleep 15; }
           done
 
       - name: Analyze code
