@@ -1,5 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'dart:io' as io;
 import '../../../data/models/receipt.dart';
 import '../../../data/models/receipt_item.dart';
 import '../../../providers/receipt_provider.dart';
@@ -16,9 +21,12 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
   final _storeNameController = TextEditingController();
   final _dateController = TextEditingController();
   final _noteController = TextEditingController();
+  final _receiptNumberController = TextEditingController();
 
   final List<ReceiptItem> _items = [];
   String _selectedDate = '';
+  String? _photoPath;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -32,6 +40,7 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
     _storeNameController.dispose();
     _dateController.dispose();
     _noteController.dispose();
+    _receiptNumberController.dispose();
     super.dispose();
   }
 
@@ -59,23 +68,47 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
     setState(() => _items.removeAt(index));
   }
 
+  Future<void> _takePhoto() async {
+    final XFile? photo = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+    );
+    if (photo != null) {
+      final appDir = await getApplicationDocumentsDirectory();
+      final photoDir = Directory(p.join(appDir.path, 'receipt_photos'));
+      if (!await photoDir.exists()) {
+        await photoDir.create(recursive: true);
+      }
+      final fileName = 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final savedPath = p.join(photoDir.path, fileName);
+      await io.File(photo.path).copy(savedPath);
+      setState(() => _photoPath = savedPath);
+    }
+  }
+
+  void _removePhoto() {
+    setState(() => _photoPath = null);
+  }
+
   double get _actualTotal => _items.fold(0, (sum, item) => sum + item.totalPrice);
   double get _theoreticalTotal => _items.fold(0, (sum, item) => sum + item.quantity * item.unitPrice);
 
   Future<void> _submit() async {
-      if (_items.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请至少录入一个商品')),
-          );
-        }
-        return;
+    if (_items.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('请至少录入一个商品')),
+        );
       }
+      return;
+    }
     final repo = ref.read(receiptRepositoryProvider);
     final receipt = Receipt(
       storeName: _storeNameController.text,
       date: _selectedDate,
       note: _noteController.text,
+      receiptNumber: _receiptNumberController.text.isEmpty ? null : _receiptNumberController.text,
+      photoPath: _photoPath,
       totalAmount: _actualTotal,
       theoreticalAmount: _theoreticalTotal,
     );
@@ -87,7 +120,11 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
         );
         _storeNameController.clear();
         _noteController.clear();
-        setState(() => _items.clear());
+        _receiptNumberController.clear();
+        setState(() {
+          _items.clear();
+          _photoPath = null;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -136,10 +173,76 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                controller: _receiptNumberController,
+                decoration: const InputDecoration(
+                  labelText: '小票编号',
+                  border: OutlineInputBorder(),
+                  hintText: '可选',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _noteController,
                 decoration: const InputDecoration(labelText: '备注', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 16),
+
+              // Photo section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('小票照片', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.camera_alt),
+                        onPressed: _takePhoto,
+                        tooltip: '拍照',
+                      ),
+                      if (_photoPath != null)
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: _removePhoto,
+                          tooltip: '删除照片',
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_photoPath != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(_photoPath!),
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else
+                GestureDetector(
+                  onTap: _takePhoto,
+                  child: Container(
+                    height: 150,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.camera_alt, size: 48, color: Colors.grey),
+                        SizedBox(height: 8),
+                        Text('点击拍照', style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+
+              // Items section
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

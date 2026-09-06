@@ -33,6 +33,8 @@ class DatabaseHelper {
         ${AppConstants.colStoreName} TEXT NOT NULL,
         ${AppConstants.colDate} TEXT NOT NULL,
         ${AppConstants.colNote} TEXT,
+        ${AppConstants.colReceiptNumber} TEXT,
+        ${AppConstants.colReceiptPhoto} TEXT,
         ${AppConstants.colTotalPrice} REAL NOT NULL DEFAULT 0,
         ${AppConstants.colTotalPrice}_theoretical REAL NOT NULL DEFAULT 0,
         ${AppConstants.colCreatedAt} TEXT NOT NULL
@@ -76,8 +78,12 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute('''
-        ALTER TABLE ${AppConstants.tableProductPrices}
-        ADD COLUMN ${AppConstants.colStoreName} TEXT
+        ALTER TABLE ${AppConstants.tableReceipts}
+        ADD COLUMN ${AppConstants.colReceiptNumber} TEXT
+      ''');
+      await db.execute('''
+        ALTER TABLE ${AppConstants.tableReceipts}
+        ADD COLUMN ${AppConstants.colReceiptPhoto} TEXT
       ''');
     }
   }

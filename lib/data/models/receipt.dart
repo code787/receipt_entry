@@ -5,6 +5,8 @@ class Receipt {
   final String storeName;
   final String date;
   final String? note;
+  final String? receiptNumber;
+  final String? photoPath;
   final double totalAmount;
   final double theoreticalAmount;
   final DateTime createdAt;
@@ -14,6 +16,8 @@ class Receipt {
     required this.storeName,
     required this.date,
     this.note,
+    this.receiptNumber,
+    this.photoPath,
     required this.totalAmount,
     required this.theoreticalAmount,
     DateTime? createdAt,
@@ -25,6 +29,8 @@ class Receipt {
       AppConstants.colStoreName: storeName,
       AppConstants.colDate: date,
       AppConstants.colNote: note,
+      AppConstants.colReceiptNumber: receiptNumber,
+      AppConstants.colReceiptPhoto: photoPath,
       AppConstants.colTotalPrice: totalAmount,
       AppConstants.colCreatedAt: createdAt.toIso8601String(),
     };
@@ -36,6 +42,8 @@ class Receipt {
       storeName: map[AppConstants.colStoreName],
       date: map[AppConstants.colDate],
       note: map[AppConstants.colNote],
+      receiptNumber: map[AppConstants.colReceiptNumber],
+      photoPath: map[AppConstants.colReceiptPhoto],
       totalAmount: (map[AppConstants.colTotalPrice] as num).toDouble(),
       theoreticalAmount: map['${AppConstants.colTotalPrice}_theoretical'] != null
           ? (map['${AppConstants.colTotalPrice}_theoretical'] as num).toDouble()
@@ -49,6 +57,8 @@ class Receipt {
     String? storeName,
     String? date,
     String? note,
+    String? receiptNumber,
+    String? photoPath,
     double? totalAmount,
     double? theoreticalAmount,
     DateTime? createdAt,
@@ -58,6 +68,8 @@ class Receipt {
       storeName: storeName ?? this.storeName,
       date: date ?? this.date,
       note: note ?? this.note,
+      receiptNumber: receiptNumber ?? this.receiptNumber,
+      photoPath: photoPath ?? this.photoPath,
       totalAmount: totalAmount ?? this.totalAmount,
       theoreticalAmount: theoreticalAmount ?? this.theoreticalAmount,
       createdAt: createdAt ?? this.createdAt,
