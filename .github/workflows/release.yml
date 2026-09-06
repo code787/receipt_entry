@@ -32,25 +32,21 @@ jobs:
 
       - name: Get dependencies
         run: flutter pub get
-        working-directory: ./receipt_entry
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
-        working-directory: ./receipt_entry
 
       - name: Test
         run: flutter test
-        working-directory: ./receipt_entry
 
       - name: Build Release APK
         run: flutter build apk --release --build-name=${{ github.event.inputs.version }} --build-number=${{ github.run_number }}
-        working-directory: ./receipt_entry
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: receipt-entry-${{ github.event.inputs.version }}-release
-          path: receipt_entry/build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
 
       - name: Create Release
@@ -66,6 +62,6 @@ jobs:
             
             ## Download
             - [app-release.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version }}/app-release.apk)
-          files: receipt_entry/build/app/outputs/flutter-apk/app-release.apk
+          files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
