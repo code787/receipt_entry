@@ -1,0 +1,80 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: gradle
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          cache: true
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+        working-directory: ./receipt_entry
+
+      - name: Analyze code
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        working-directory: ./receipt_entry
+
+      - name: Run tests
+        run: flutter test
+        working-directory: ./receipt_entry
+
+      - name: Build Debug APK
+        run: flutter build apk --debug
+        working-directory: ./receipt_entry
+
+      - name: Build Release APK
+        run: flutter build apk --release
+        working-directory: ./receipt_entry
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: receipt-entry-debug-apk
+          path: receipt_entry/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: receipt-entry-release-apk
+          path: receipt_entry/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+
+      - name: Create Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            receipt_entry/build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
