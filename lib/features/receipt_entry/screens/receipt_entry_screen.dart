@@ -8,6 +8,8 @@ import 'dart:io' as io;
 import '../../../data/models/receipt.dart';
 import '../../../data/models/receipt_item.dart';
 import '../../../providers/receipt_provider.dart';
+import '../services/ocr_service.dart';
+import 'receipt_scan_screen.dart';
 
 class ReceiptEntryScreen extends ConsumerStatefulWidget {
   const ReceiptEntryScreen({super.key});
@@ -83,6 +85,55 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
       final savedPath = p.join(photoDir.path, fileName);
       await io.File(photo.path).copy(savedPath);
       setState(() => _photoPath = savedPath);
+    }
+  }
+
+  Future<void> _scanReceipt() async {
+    final XFile? photo = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+    );
+    if (photo == null) return;
+
+    // Save photo
+    final appDir = await getApplicationDocumentsDirectory();
+    final photoDir = Directory(p.join(appDir.path, 'receipt_photos'));
+    if (!await photoDir.exists()) {
+      await photoDir.create(recursive: true);
+    }
+    final fileName = 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final savedPath = p.join(photoDir.path, fileName);
+    await io.File(photo.path).copy(savedPath);
+
+    // Show processing indicator
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('正在识别小票内容...')),
+      );
+    }
+
+    // OCR
+    try {
+      final ocrService = OcrService.instance;
+      final items = await ocrService.parseReceiptItems(savedPath);
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ReceiptScanScreen(
+              photoPath: savedPath,
+              initialItems: items,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('识别失败: $e')),
+        );
+      }
     }
   }
 
@@ -240,6 +291,22 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
                     ),
                   ),
                 ),
+              const SizedBox(height: 16),
+
+              // OCR Scan button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _scanReceipt,
+                  icon: const Icon(Icons.document_scanner),
+                  label: const Text('扫描识别小票'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: Colors.teal),
+                    foregroundColor: Colors.teal,
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
 
               // Items section

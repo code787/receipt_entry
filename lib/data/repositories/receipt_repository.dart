@@ -42,6 +42,42 @@ class ReceiptRepository {
     await db.delete(AppConstants.tableReceipts, where: '${AppConstants.colId} = ?', whereArgs: [id]);
   }
 
+  Future<void> deleteReceiptByNumber(String receiptNumber) async {
+    final db = await _dbHelper.database;
+    await db.transaction((tx) async {
+      final receipts = await tx.query(
+        AppConstants.tableReceipts,
+        columns: [AppConstants.colId],
+        where: '${AppConstants.colReceiptNumber} = ?',
+        whereArgs: [receiptNumber],
+      );
+      for (final receipt in receipts) {
+        final receiptId = receipt[AppConstants.colId] as int;
+        await tx.delete(
+          AppConstants.tableReceiptItems,
+          where: '${AppConstants.colReceiptId} = ?',
+          whereArgs: [receiptId],
+        );
+        await tx.delete(
+          AppConstants.tableReceipts,
+          where: '${AppConstants.colId} = ?',
+          whereArgs: [receiptId],
+        );
+      }
+    });
+  }
+
+  Future<List<Receipt>> getReceiptsByNumber(String receiptNumber) async {
+    final db = await _dbHelper.database;
+    final maps = await db.query(
+      AppConstants.tableReceipts,
+      where: '${AppConstants.colReceiptNumber} = ?',
+      whereArgs: [receiptNumber],
+      orderBy: '${AppConstants.colCreatedAt} DESC',
+    );
+    return maps.map((m) => Receipt.fromMap(m)).toList();
+  }
+
   Future<void> insertProductPrice(ProductPrice price) async {
     final db = await _dbHelper.database;
     await db.insert(AppConstants.tableProductPrices, price.toMap());
