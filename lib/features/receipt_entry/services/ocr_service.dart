@@ -31,19 +31,6 @@ class OcrService {
       (m) => '${m.group(1)}.${m.group(2)}',
     );
 
-    // Fix "1 0.90" → "10.90" (space in integer part of number)
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(\d)\s+(\d\.\d+)'),
-      (m) => '${m.group(1)}${m.group(2)}',
-    );
-
-    // Fix "¥ 10.90" → "¥10.90" (space after currency symbol)
-    cleaned = cleaned.replaceAll('¥ ', '¥');
-    cleaned = cleaned.replaceAll('￥ ', '￥');
-
-    // Fix multiple spaces to single space
-    cleaned = cleaned.replaceAll(RegExp(r' {2,}'), ' ');
-
     return cleaned;
   }
 
