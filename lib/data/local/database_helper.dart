@@ -73,6 +73,7 @@ class DatabaseHelper {
         template_store_name TEXT DEFAULT '',
         item_pattern TEXT,
         name_group TEXT,
+        barcode_group TEXT,
         qty_group TEXT,
         unit_price_group TEXT,
         total_price_group TEXT,
@@ -131,6 +132,9 @@ class DatabaseHelper {
     }
     if (oldVersion < 4) {
       await _addColumnIfNotExists(db, AppConstants.tableReceiptItems, AppConstants.colBarcode, 'TEXT');
+    }
+    if (oldVersion < 5) {
+      await _addColumnIfNotExists(db, 'receipt_templates', 'barcode_group', 'TEXT');
     }
   }
 

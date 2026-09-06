@@ -141,6 +141,7 @@ class _TemplateEditScreenState extends State<TemplateEditScreen> {
   late final TextEditingController _storeNameController;
   late final TextEditingController _itemPatternController;
   late final TextEditingController _nameGroupController;
+  late final TextEditingController _barcodeGroupController;
   late final TextEditingController _qtyGroupController;
   late final TextEditingController _unitPriceGroupController;
   late final TextEditingController _totalPriceGroupController;
@@ -155,6 +156,7 @@ class _TemplateEditScreenState extends State<TemplateEditScreen> {
     _storeNameController = TextEditingController(text: t?.storeName ?? '');
     _itemPatternController = TextEditingController(text: t?.itemPattern ?? '');
     _nameGroupController = TextEditingController(text: t?.nameGroup ?? '1');
+    _barcodeGroupController = TextEditingController(text: t?.barcodeGroup ?? '');
     _qtyGroupController = TextEditingController(text: t?.qtyGroup ?? '');
     _unitPriceGroupController = TextEditingController(text: t?.unitPriceGroup ?? '');
     _totalPriceGroupController = TextEditingController(text: t?.totalPriceGroup ?? '');
@@ -168,6 +170,7 @@ class _TemplateEditScreenState extends State<TemplateEditScreen> {
     _storeNameController.dispose();
     _itemPatternController.dispose();
     _nameGroupController.dispose();
+    _barcodeGroupController.dispose();
     _qtyGroupController.dispose();
     _unitPriceGroupController.dispose();
     _totalPriceGroupController.dispose();
@@ -184,6 +187,7 @@ class _TemplateEditScreenState extends State<TemplateEditScreen> {
       storeName: _storeNameController.text,
       itemPattern: _itemPatternController.text.isEmpty ? null : _itemPatternController.text,
       nameGroup: _nameGroupController.text.isEmpty ? null : _nameGroupController.text,
+      barcodeGroup: _barcodeGroupController.text.isEmpty ? null : _barcodeGroupController.text,
       qtyGroup: _qtyGroupController.text.isEmpty ? null : _qtyGroupController.text,
       unitPriceGroup: _unitPriceGroupController.text.isEmpty ? null : _unitPriceGroupController.text,
       totalPriceGroup: _totalPriceGroupController.text.isEmpty ? null : _totalPriceGroupController.text,
@@ -268,9 +272,9 @@ class _TemplateEditScreenState extends State<TemplateEditScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextFormField(
-                      controller: _qtyGroupController,
+                      controller: _barcodeGroupController,
                       decoration: const InputDecoration(
-                        labelText: '数量组号',
+                        labelText: '条码组号',
                         border: OutlineInputBorder(),
                         hintText: '可选',
                       ),
@@ -283,6 +287,17 @@ class _TemplateEditScreenState extends State<TemplateEditScreen> {
                 children: [
                   Expanded(
                     child: TextFormField(
+                      controller: _qtyGroupController,
+                      decoration: const InputDecoration(
+                        labelText: '数量组号',
+                        border: OutlineInputBorder(),
+                        hintText: '可选',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
                       controller: _unitPriceGroupController,
                       decoration: const InputDecoration(
                         labelText: '单价组号',
@@ -291,7 +306,11 @@ class _TemplateEditScreenState extends State<TemplateEditScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
                   Expanded(
                     child: TextFormField(
                       controller: _totalPriceGroupController,

@@ -106,19 +106,20 @@ class OcrService {
       if (match == null) continue;
 
       final name = _extractGroup(match, template.nameGroup);
+      final barcode = _extractGroup(match, template.barcodeGroup);
       final qty = _extractGroup(match, template.qtyGroup);
       final unitPrice = _extractGroup(match, template.unitPriceGroup);
       final totalPrice = _extractGroup(match, template.totalPriceGroup);
 
       if (name == null || name.isEmpty) continue;
 
-      // Extract barcode from next line
-      String? barcode;
-      if (i + 1 < lines.length) {
+      // If no barcode from regex, try next line
+      String? finalBarcode = barcode;
+      if (finalBarcode == null && i + 1 < lines.length) {
         final nextLine = lines[i + 1];
         final barcodeMatch = RegExp(r'^(\d{11,14})$').firstMatch(nextLine);
         if (barcodeMatch != null) {
-          barcode = barcodeMatch.group(1);
+          finalBarcode = barcodeMatch.group(1);
         }
       }
 
@@ -131,7 +132,7 @@ class OcrService {
       items.add(ReceiptItem(
         receiptId: 0,
         productName: name,
-        barcode: barcode,
+        barcode: finalBarcode,
         quantity: parsedQty,
         unitPrice: parsedUnitPrice > 0 ? parsedUnitPrice : parsedTotalPrice,
         totalPrice: parsedTotalPrice > 0 ? parsedTotalPrice : parsedUnitPrice * parsedQty,

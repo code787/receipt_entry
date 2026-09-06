@@ -6,6 +6,7 @@ class ReceiptTemplate {
   final String storeName;
   final String? itemPattern;
   final String? nameGroup;
+  final String? barcodeGroup;
   final String? qtyGroup;
   final String? unitPriceGroup;
   final String? totalPriceGroup;
@@ -19,6 +20,7 @@ class ReceiptTemplate {
     this.storeName = '',
     this.itemPattern,
     this.nameGroup,
+    this.barcodeGroup,
     this.qtyGroup,
     this.unitPriceGroup,
     this.totalPriceGroup,
@@ -34,6 +36,7 @@ class ReceiptTemplate {
       'template_store_name': storeName,
       'item_pattern': itemPattern,
       'name_group': nameGroup,
+      'barcode_group': barcodeGroup,
       'qty_group': qtyGroup,
       'unit_price_group': unitPriceGroup,
       'total_price_group': totalPriceGroup,
@@ -50,6 +53,7 @@ class ReceiptTemplate {
       storeName: map['template_store_name'] ?? '',
       itemPattern: map['item_pattern'],
       nameGroup: map['name_group'],
+      barcodeGroup: map['barcode_group'],
       qtyGroup: map['qty_group'],
       unitPriceGroup: map['unit_price_group'],
       totalPriceGroup: map['total_price_group'],
@@ -65,6 +69,7 @@ class ReceiptTemplate {
     String? storeName,
     String? itemPattern,
     String? nameGroup,
+    String? barcodeGroup,
     String? qtyGroup,
     String? unitPriceGroup,
     String? totalPriceGroup,
@@ -77,6 +82,7 @@ class ReceiptTemplate {
       storeName: storeName ?? this.storeName,
       itemPattern: itemPattern ?? this.itemPattern,
       nameGroup: nameGroup ?? this.nameGroup,
+      barcodeGroup: barcodeGroup ?? this.barcodeGroup,
       qtyGroup: qtyGroup ?? this.qtyGroup,
       unitPriceGroup: unitPriceGroup ?? this.unitPriceGroup,
       totalPriceGroup: totalPriceGroup ?? this.totalPriceGroup,
@@ -97,14 +103,14 @@ class ReceiptTemplate {
         isDefault: true,
       ),
       ReceiptTemplate(
-        name: '超市散称商品',
+        name: '超市散称商品（含条码）',
         storeName: '',
         itemPattern: r'^(.+?/kg)\s+[-—]?\s*(\d+\.?\d*)\s*$',
         nameGroup: '1',
         totalPriceGroup: '2',
       ),
       ReceiptTemplate(
-        name: '超市包装商品',
+        name: '超市包装商品（含条码）',
         storeName: '',
         itemPattern: r'^(.+?)\s+(\d+)\.?\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s*$',
         nameGroup: '1',
