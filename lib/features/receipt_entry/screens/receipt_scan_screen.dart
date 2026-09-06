@@ -224,15 +224,31 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Photo preview
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                File(widget.photoPath),
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+            // Photo preview with re-take button
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(widget.photoPath),
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: CircleAvatar(
+                    backgroundColor: Colors.black54,
+                    child: IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      onPressed: _reparseWithTemplate,
+                      tooltip: '重新识别',
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../../../data/models/receipt_item.dart';
 import '../../../data/models/receipt_template.dart';
@@ -15,11 +16,29 @@ class OcrService {
   }
 
   Future<List<ReceiptItem>> parseReceiptItems(String imagePath, {ReceiptTemplate? template}) async {
-    final text = await recognizeText(imagePath);
+    // Pre-process image for better accuracy
+    final processedPath = await _preprocessImage(imagePath);
+    final text = await recognizeText(processedPath);
+
+    // Clean up processed image
+    try {
+      final processedFile = File(processedPath);
+      if (await processedFile.exists() && processedPath != imagePath) {
+        await processedFile.delete();
+      }
+    } catch (_) {}
+
     if (template != null) {
       return _parseWithTemplate(text, template);
     }
     return _parseTextToItems(text);
+  }
+
+  Future<String> _preprocessImage(String imagePath) async {
+    // For now, return original path
+    // Image preprocessing would require additional packages like opencv
+    // This is a placeholder for future enhancement
+    return imagePath;
   }
 
   String? extractStoreName(String text) {
@@ -43,19 +62,19 @@ class OcrService {
     final items = <ReceiptItem>[];
     final lines = text.split('\n').map((l) => l.trim()).toList();
 
-    // Compile skip pattern
+    // Compile skip pattern with multi-line mode
     RegExp? skipRegex;
     if (template.skipPattern != null && template.skipPattern!.isNotEmpty) {
       try {
-        skipRegex = RegExp(template.skipPattern!, multiLine: true);
+        skipRegex = RegExp(template.skipPattern!, multiLine: true, caseSensitive: false);
       } catch (_) {}
     }
 
-    // Compile item pattern
+    // Compile item pattern with multi-line mode
     RegExp? itemRegex;
     if (template.itemPattern != null && template.itemPattern!.isNotEmpty) {
       try {
-        itemRegex = RegExp(template.itemPattern!);
+        itemRegex = RegExp(template.itemPattern!, multiLine: true, caseSensitive: false);
       } catch (_) {}
     }
 

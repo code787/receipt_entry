@@ -119,7 +119,9 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
 
     final XFile? photo = await _picker.pickImage(
       source: source,
-      imageQuality: 80,
+      imageQuality: 100,
+      maxWidth: 2000,
+      maxHeight: 2000,
     );
     if (photo == null) return;
 
