@@ -8,11 +8,15 @@ import '../../../providers/receipt_provider.dart';
 class ReceiptScanScreen extends ConsumerStatefulWidget {
   final String photoPath;
   final List<ReceiptItem> initialItems;
+  final String? initialStoreName;
+  final String? initialReceiptNumber;
 
   const ReceiptScanScreen({
     super.key,
     required this.photoPath,
     this.initialItems = const [],
+    this.initialStoreName,
+    this.initialReceiptNumber,
   });
 
   @override
@@ -34,6 +38,12 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     _items = List.from(widget.initialItems);
     _selectedDate = DateTime.now().toString().substring(0, 10);
     _dateController.text = _selectedDate;
+    if (widget.initialStoreName != null) {
+      _storeNameController.text = widget.initialStoreName!;
+    }
+    if (widget.initialReceiptNumber != null) {
+      _receiptNumberController.text = widget.initialReceiptNumber!;
+    }
   }
 
   @override

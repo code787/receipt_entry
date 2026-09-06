@@ -144,6 +144,9 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
     try {
       final ocrService = OcrService.instance;
       final items = await ocrService.parseReceiptItems(savedPath);
+      final fullText = await ocrService.recognizeText(savedPath);
+      final storeName = ocrService.extractStoreName(fullText);
+      final receiptNumber = ocrService.extractReceiptNumber(fullText);
 
       if (mounted) {
         Navigator.push(
@@ -152,6 +155,8 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
             builder: (context) => ReceiptScanScreen(
               photoPath: savedPath,
               initialItems: items,
+              initialStoreName: storeName,
+              initialReceiptNumber: receiptNumber,
             ),
           ),
         );
