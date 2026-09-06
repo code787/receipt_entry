@@ -47,6 +47,7 @@ class DatabaseHelper {
         ${AppConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
         ${AppConstants.colReceiptId} INTEGER NOT NULL,
         ${AppConstants.colProductName} TEXT NOT NULL,
+        ${AppConstants.colBarcode} TEXT,
         ${AppConstants.colQuantity} INTEGER NOT NULL DEFAULT 1,
         ${AppConstants.colUnitPrice} REAL NOT NULL DEFAULT 0,
         ${AppConstants.colTotalPrice} REAL NOT NULL DEFAULT 0,
@@ -127,6 +128,9 @@ class DatabaseHelper {
           await db.insert('receipt_templates', template.toMap());
         }
       }
+    }
+    if (oldVersion < 4) {
+      await _addColumnIfNotExists(db, AppConstants.tableReceiptItems, AppConstants.colBarcode, 'TEXT');
     }
   }
 

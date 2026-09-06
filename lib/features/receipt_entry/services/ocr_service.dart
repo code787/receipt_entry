@@ -15,7 +15,7 @@ class OcrService {
     return _cleanOcrText(recognizedText.text);
   }
 
-  /// Clean OCR text to fix common spacing issues
+  /// Clean OCR text to fix common issues
   String _cleanOcrText(String text) {
     var cleaned = text;
 
@@ -31,15 +31,19 @@ class OcrService {
       (m) => '${m.group(1)}.${m.group(2)}',
     );
 
+    // Clean barcode: remove all spaces from barcode lines (11-14 digits)
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'^(\d[\d\s]{10,16}\d)$', multiLine: true),
+      (m) => m.group(0)!.replaceAll(RegExp(r'\s'), ''),
+    );
+
     return cleaned;
   }
 
   Future<List<ReceiptItem>> parseReceiptItems(String imagePath, {ReceiptTemplate? template}) async {
-    // Pre-process image for better accuracy
     final processedPath = await _preprocessImage(imagePath);
     final text = await recognizeText(processedPath);
 
-    // Clean up processed image
     try {
       final processedFile = File(processedPath);
       if (await processedFile.exists() && processedPath != imagePath) {
@@ -54,9 +58,6 @@ class OcrService {
   }
 
   Future<String> _preprocessImage(String imagePath) async {
-    // For now, return original path
-    // Image preprocessing would require additional packages like opencv
-    // This is a placeholder for future enhancement
     return imagePath;
   }
 
@@ -81,7 +82,6 @@ class OcrService {
     final items = <ReceiptItem>[];
     final lines = text.split('\n').map((l) => l.trim()).toList();
 
-    // Compile skip pattern with multi-line mode
     RegExp? skipRegex;
     if (template.skipPattern != null && template.skipPattern!.isNotEmpty) {
       try {
@@ -89,7 +89,6 @@ class OcrService {
       } catch (_) {}
     }
 
-    // Compile item pattern with multi-line mode
     RegExp? itemRegex;
     if (template.itemPattern != null && template.itemPattern!.isNotEmpty) {
       try {
@@ -97,24 +96,31 @@ class OcrService {
       } catch (_) {}
     }
 
-    for (final line in lines) {
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
       if (line.isEmpty) continue;
-
-      // Check skip pattern
       if (skipRegex != null && skipRegex.hasMatch(line)) continue;
-
       if (itemRegex == null) continue;
 
       final match = itemRegex.firstMatch(line);
       if (match == null) continue;
 
-      // Extract fields using group numbers
       final name = _extractGroup(match, template.nameGroup);
       final qty = _extractGroup(match, template.qtyGroup);
       final unitPrice = _extractGroup(match, template.unitPriceGroup);
       final totalPrice = _extractGroup(match, template.totalPriceGroup);
 
       if (name == null || name.isEmpty) continue;
+
+      // Extract barcode from next line
+      String? barcode;
+      if (i + 1 < lines.length) {
+        final nextLine = lines[i + 1];
+        final barcodeMatch = RegExp(r'^(\d{11,14})$').firstMatch(nextLine);
+        if (barcodeMatch != null) {
+          barcode = barcodeMatch.group(1);
+        }
+      }
 
       final parsedQty = qty != null ? (int.tryParse(qty) ?? 1) : 1;
       final parsedUnitPrice = unitPrice != null ? (double.tryParse(unitPrice) ?? 0.0) : 0.0;
@@ -125,6 +131,7 @@ class OcrService {
       items.add(ReceiptItem(
         receiptId: 0,
         productName: name,
+        barcode: barcode,
         quantity: parsedQty,
         unitPrice: parsedUnitPrice > 0 ? parsedUnitPrice : parsedTotalPrice,
         totalPrice: parsedTotalPrice > 0 ? parsedTotalPrice : parsedUnitPrice * parsedQty,
@@ -149,14 +156,24 @@ class OcrService {
       final line = lines[i];
       if (line.isEmpty) continue;
 
-      // Skip barcode lines
+      // Skip barcode-only lines
       if (RegExp(r'^\d{11,14}$').hasMatch(line)) continue;
 
       if (_isNonItemLine(line)) continue;
 
       final item = _parseItemLine(line);
       if (item != null) {
-        items.add(item);
+        // Extract barcode from next line
+        String? barcode;
+        if (i + 1 < lines.length) {
+          final nextLine = lines[i + 1];
+          final barcodeMatch = RegExp(r'^(\d{11,14})$').firstMatch(nextLine);
+          if (barcodeMatch != null) {
+            barcode = barcodeMatch.group(1);
+          }
+        }
+
+        items.add(item.copyWith(barcode: barcode));
       }
     }
 

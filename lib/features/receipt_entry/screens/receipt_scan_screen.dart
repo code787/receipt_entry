@@ -77,11 +77,12 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     showDialog(
       context: context,
       builder: (ctx) => _EditItemDialog(
-        onSave: (name, qty, price) {
+        onSave: (name, barcode, qty, price) {
           setState(() {
             _items.add(ReceiptItem(
               receiptId: 0,
               productName: name,
+              barcode: barcode,
               quantity: qty,
               unitPrice: price,
               totalPrice: qty * price,
@@ -99,13 +100,15 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       context: context,
       builder: (ctx) => _EditItemDialog(
         initialName: item.productName,
+        initialBarcode: item.barcode,
         initialQty: item.quantity.toString(),
         initialPrice: item.unitPrice.toString(),
-        onSave: (name, qty, price) {
+        onSave: (name, barcode, qty, price) {
           setState(() {
             _items[index] = ReceiptItem(
               receiptId: item.receiptId,
               productName: name,
+              barcode: barcode,
               quantity: qty,
               unitPrice: price,
               totalPrice: qty * price,
@@ -375,8 +378,18 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
               ..._items.asMap().entries.map((entry) => Card(
                 child: ListTile(
                   title: Text(entry.value.productName),
-                  subtitle: Text(
-                    '${entry.value.quantity}件 × ¥${entry.value.unitPrice.toStringAsFixed(2)} = ¥${entry.value.totalPrice.toStringAsFixed(2)}',
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (entry.value.barcode != null)
+                        Text(
+                          '条码: ${entry.value.barcode}',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      Text(
+                        '${entry.value.quantity}件 × ¥${entry.value.unitPrice.toStringAsFixed(2)} = ¥${entry.value.totalPrice.toStringAsFixed(2)}',
+                      ),
+                    ],
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -436,12 +449,14 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
 
 class _EditItemDialog extends StatefulWidget {
   final String? initialName;
+  final String? initialBarcode;
   final String? initialQty;
   final String? initialPrice;
-  final Function(String, int, double) onSave;
+  final Function(String, String?, int, double) onSave;
 
   const _EditItemDialog({
     this.initialName,
+    this.initialBarcode,
     this.initialQty,
     this.initialPrice,
     required this.onSave,
@@ -453,6 +468,7 @@ class _EditItemDialog extends StatefulWidget {
 
 class __EditItemDialogState extends State<_EditItemDialog> {
   late final TextEditingController _nameController;
+  late final TextEditingController _barcodeController;
   late final TextEditingController _qtyController;
   late final TextEditingController _priceController;
 
@@ -460,6 +476,7 @@ class __EditItemDialogState extends State<_EditItemDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName ?? '');
+    _barcodeController = TextEditingController(text: widget.initialBarcode ?? '');
     _qtyController = TextEditingController(text: widget.initialQty ?? '1');
     _priceController = TextEditingController(text: widget.initialPrice ?? '');
   }
@@ -467,6 +484,7 @@ class __EditItemDialogState extends State<_EditItemDialog> {
   @override
   void dispose() {
     _nameController.dispose();
+    _barcodeController.dispose();
     _qtyController.dispose();
     _priceController.dispose();
     super.dispose();
@@ -474,6 +492,7 @@ class __EditItemDialogState extends State<_EditItemDialog> {
 
   void _save() {
     final name = _nameController.text.trim();
+    final barcode = _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim();
     final qty = int.tryParse(_qtyController.text) ?? 1;
     final price = double.tryParse(_priceController.text) ?? 0.0;
     if (name.isEmpty || price <= 0) {
@@ -482,7 +501,7 @@ class __EditItemDialogState extends State<_EditItemDialog> {
       );
       return;
     }
-    widget.onSave(name, qty, price);
+    widget.onSave(name, barcode, qty, price);
   }
 
   @override
@@ -496,6 +515,12 @@ class __EditItemDialogState extends State<_EditItemDialog> {
             controller: _nameController,
             decoration: const InputDecoration(labelText: '商品名称'),
             autofocus: true,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _barcodeController,
+            decoration: const InputDecoration(labelText: '条码', hintText: '可选'),
+            keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 8),
           TextField(
