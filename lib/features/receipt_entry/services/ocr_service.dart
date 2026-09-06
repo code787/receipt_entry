@@ -12,7 +12,39 @@ class OcrService {
   Future<String> recognizeText(String imagePath) async {
     final inputImage = InputImage.fromFilePath(imagePath);
     final recognizedText = await _textRecognizer.processImage(inputImage);
-    return recognizedText.text;
+    return _cleanOcrText(recognizedText.text);
+  }
+
+  /// Clean OCR text to fix common spacing issues
+  String _cleanOcrText(String text) {
+    var cleaned = text;
+
+    // Fix "10. 90" → "10.90" (space after dot in numbers)
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(\d+)\.\s+(\d+)'),
+      (m) => '${m.group(1)}.${m.group(2)}',
+    );
+
+    // Fix "10 ." → "10." (space before dot)
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(\d+)\s+\.(\d)'),
+      (m) => '${m.group(1)}.${m.group(2)}',
+    );
+
+    // Fix "1 0.90" → "10.90" (space in integer part of number)
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(\d)\s+(\d\.\d+)'),
+      (m) => '${m.group(1)}${m.group(2)}',
+    );
+
+    // Fix "¥ 10.90" → "¥10.90" (space after currency symbol)
+    cleaned = cleaned.replaceAll('¥ ', '¥');
+    cleaned = cleaned.replaceAll('￥ ', '￥');
+
+    // Fix multiple spaces to single space
+    cleaned = cleaned.replaceAll(RegExp(r' {2,}'), ' ');
+
+    return cleaned;
   }
 
   Future<List<ReceiptItem>> parseReceiptItems(String imagePath, {ReceiptTemplate? template}) async {
