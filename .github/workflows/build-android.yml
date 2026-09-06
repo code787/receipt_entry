@@ -7,6 +7,10 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+env:
+  PUB_HOSTED_URL: https://pub.flutter-io.cn
+  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
+
 jobs:
   build:
     name: Build Android APK
@@ -35,8 +39,16 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Configure Gradle TLS
+        run: |
+          echo "systemProp.https.protocols=TLSv1.2,TLSv1.3" >> android/gradle.properties
+          echo "systemProp.jdk.tls.client.protocols=TLSv1.2,TLSv1.3" >> android/gradle.properties
+
       - name: Get Flutter dependencies
-        run: flutter pub get
+        run: |
+          for i in 1 2 3; do
+            flutter pub get && break || sleep 10
+          done
 
       - name: Analyze code
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
