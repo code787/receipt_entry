@@ -1,11 +1,12 @@
 class AppConstants {
   static const String appName = '小票录入系统';
   static const String databaseName = 'receipt_entry.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
 
   static const String tableReceipts = 'receipts';
   static const String tableReceiptItems = 'receipt_items';
   static const String tableProductPrices = 'product_prices';
+  static const String tableReceiptTemplates = 'receipt_templates';
 
   static const String colId = 'id';
   static const String colReceiptId = 'receipt_id';

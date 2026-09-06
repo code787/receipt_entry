@@ -1,5 +1,6 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../../../data/models/receipt_item.dart';
+import '../../../data/models/receipt_template.dart';
 
 class OcrService {
   static final OcrService instance = OcrService._();
@@ -13,8 +14,11 @@ class OcrService {
     return recognizedText.text;
   }
 
-  Future<List<ReceiptItem>> parseReceiptItems(String imagePath) async {
+  Future<List<ReceiptItem>> parseReceiptItems(String imagePath, {ReceiptTemplate? template}) async {
     final text = await recognizeText(imagePath);
+    if (template != null) {
+      return _parseWithTemplate(text, template);
+    }
     return _parseTextToItems(text);
   }
 
@@ -23,7 +27,7 @@ class OcrService {
     for (final line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
-      if (trimmed.contains('店') && trimmed.length < 30) {
+      if (trimmed.contains('店') && trimmed.length < 30 && !trimmed.contains('单号')) {
         return trimmed;
       }
     }
@@ -35,6 +39,70 @@ class OcrService {
     return match?.group(1);
   }
 
+  List<ReceiptItem> _parseWithTemplate(String text, ReceiptTemplate template) {
+    final items = <ReceiptItem>[];
+    final lines = text.split('\n').map((l) => l.trim()).toList();
+
+    // Compile skip pattern
+    RegExp? skipRegex;
+    if (template.skipPattern != null && template.skipPattern!.isNotEmpty) {
+      try {
+        skipRegex = RegExp(template.skipPattern!, multiLine: true);
+      } catch (_) {}
+    }
+
+    // Compile item pattern
+    RegExp? itemRegex;
+    if (template.itemPattern != null && template.itemPattern!.isNotEmpty) {
+      try {
+        itemRegex = RegExp(template.itemPattern!);
+      } catch (_) {}
+    }
+
+    for (final line in lines) {
+      if (line.isEmpty) continue;
+
+      // Check skip pattern
+      if (skipRegex != null && skipRegex.hasMatch(line)) continue;
+
+      if (itemRegex == null) continue;
+
+      final match = itemRegex.firstMatch(line);
+      if (match == null) continue;
+
+      // Extract fields using group numbers
+      final name = _extractGroup(match, template.nameGroup);
+      final qty = _extractGroup(match, template.qtyGroup);
+      final unitPrice = _extractGroup(match, template.unitPriceGroup);
+      final totalPrice = _extractGroup(match, template.totalPriceGroup);
+
+      if (name == null || name.isEmpty) continue;
+
+      final parsedQty = qty != null ? (int.tryParse(qty) ?? 1) : 1;
+      final parsedUnitPrice = unitPrice != null ? (double.tryParse(unitPrice) ?? 0.0) : 0.0;
+      final parsedTotalPrice = totalPrice != null ? (double.tryParse(totalPrice) ?? 0.0) : 0.0;
+
+      if (parsedTotalPrice <= 0 && parsedUnitPrice <= 0) continue;
+
+      items.add(ReceiptItem(
+        receiptId: 0,
+        productName: name,
+        quantity: parsedQty,
+        unitPrice: parsedUnitPrice > 0 ? parsedUnitPrice : parsedTotalPrice,
+        totalPrice: parsedTotalPrice > 0 ? parsedTotalPrice : parsedUnitPrice * parsedQty,
+      ));
+    }
+
+    return items;
+  }
+
+  String? _extractGroup(Match match, String? groupStr) {
+    if (groupStr == null || groupStr.isEmpty) return null;
+    final groupIndex = int.tryParse(groupStr);
+    if (groupIndex == null || groupIndex < 0 || groupIndex > match.groupCount) return null;
+    return match.group(groupIndex);
+  }
+
   List<ReceiptItem> _parseTextToItems(String text) {
     final items = <ReceiptItem>[];
     final lines = text.split('\n').map((l) => l.trim()).toList();
@@ -43,13 +111,11 @@ class OcrService {
       final line = lines[i];
       if (line.isEmpty) continue;
 
-      // Skip barcode lines (pure digits, 11-14 digits)
+      // Skip barcode lines
       if (RegExp(r'^\d{11,14}$').hasMatch(line)) continue;
 
-      // Skip header/footer lines
       if (_isNonItemLine(line)) continue;
 
-      // Try to parse as an item line
       final item = _parseItemLine(line);
       if (item != null) {
         items.add(item);
@@ -60,12 +126,8 @@ class OcrService {
   }
 
   ReceiptItem? _parseItemLine(String line) {
-    // Format 1: 商品名 + 条码在下一行，价格在行尾（散称商品）
-    // "爱乡亲面包/kg          3.48"
-    // Pattern: name + spaces/tabs + price (possibly with dash placeholder for qty)
-    final pattern1 = RegExp(
-      r'^(.+?)\s+[-—]?\s*[¥￥]?\s*(\d+\.?\d*)\s*$',
-    );
+    // Format 1: 商品名 + 价格（散称商品）
+    final pattern1 = RegExp(r'^(.+?)\s+[-—]?\s*[¥￥]?\s*(\d+\.?\d*)\s*$');
     final match1 = pattern1.firstMatch(line);
     if (match1 != null) {
       final name = match1.group(1)!.trim();
@@ -81,12 +143,8 @@ class OcrService {
       }
     }
 
-    // Format 2: 商品名 + 数量 + 单价 + 金额（包装商品）
-    // "七度空间天山绒棉极薄日用250mm/包  1. 10.90 10.90"
-    // "高洁丝海岛奢宠纯棉卫生巾280/包  1. 16.90 16.90"
-    final pattern2 = RegExp(
-      r'^(.+?)\s+(\d+)\.?\s+[¥￥]?\s*(\d+\.?\d*)\s+[¥￥]?\s*(\d+\.?\d*)\s*$',
-    );
+    // Format 2: 商品名 + 数量. + 单价 + 金额（包装商品）
+    final pattern2 = RegExp(r'^(.+?)\s+(\d+)\.?\s+[¥￥]?\s*(\d+\.?\d*)\s+[¥￥]?\s*(\d+\.?\d*)\s*$');
     final match2 = pattern2.firstMatch(line);
     if (match2 != null) {
       final name = match2.group(1)!.trim();
@@ -104,48 +162,6 @@ class OcrService {
       }
     }
 
-    // Format 3: 商品名 + 数量 + 单价 + 金额（without dot after qty）
-    // "ABC纤薄棉柔夜用8片/包 1 5.90 5.90"
-    final pattern3 = RegExp(
-      r'^(.+?)\s+(\d+)\s+[¥￥]?\s*(\d+\.?\d*)\s+[¥￥]?\s*(\d+\.?\d*)\s*$',
-    );
-    final match3 = pattern3.firstMatch(line);
-    if (match3 != null) {
-      final name = match3.group(1)!.trim();
-      final qty = int.parse(match3.group(2)!);
-      final unitPrice = double.parse(match3.group(3)!);
-      final totalPrice = double.parse(match3.group(4)!);
-      if (_isValidItemName(name) && unitPrice > 0) {
-        return ReceiptItem(
-          receiptId: 0,
-          productName: name,
-          quantity: qty,
-          unitPrice: unitPrice,
-          totalPrice: totalPrice,
-        );
-      }
-    }
-
-    // Format 4: Simple "name  price" (for items with only total price)
-    // "沙琪 土豆/kg          1.47"
-    final pattern4 = RegExp(
-      r'^(.+?)\s+[¥￥]?\s*(\d+\.\d{2})\s*$',
-    );
-    final match4 = pattern4.firstMatch(line);
-    if (match4 != null) {
-      final name = match4.group(1)!.trim();
-      final price = double.parse(match4.group(2)!);
-      if (_isValidItemName(name) && price > 0 && price < 10000) {
-        return ReceiptItem(
-          receiptId: 0,
-          productName: name,
-          quantity: 1,
-          unitPrice: price,
-          totalPrice: price,
-        );
-      }
-    }
-
     return null;
   }
 
@@ -153,7 +169,6 @@ class OcrService {
     if (name.length < 2) return false;
     if (RegExp(r'^\d+\.?\d*$').hasMatch(name)) return false;
 
-    // Filter out non-item keywords
     final skipKeywords = [
       '合计', '总计', '小计', '找零', '回找', '实收', '原价',
       '现金', '微信', '支付宝', '银行卡', '会员', '抖音',
@@ -168,14 +183,12 @@ class OcrService {
       if (lowerName.contains(kw.toLowerCase())) return false;
     }
 
-    // Filter out lines that are just numbers/barcodes
     if (RegExp(r'^[\d\s.]+$').hasMatch(name)) return false;
 
     return true;
   }
 
   bool _isNonItemLine(String line) {
-    // Header/footer patterns to skip
     final skipPatterns = [
       RegExp(r'店号'), RegExp(r'工号'), RegExp(r'单号'),
       RegExp(r'品名'), RegExp(r'合计'), RegExp(r'总计'),
@@ -185,7 +198,7 @@ class OcrService {
       RegExp(r'拨打'), RegExp(r'热线'), RegExp(r'扫码'),
       RegExp(r'售出'), RegExp(r'正常额'), RegExp(r'特价格'),
       RegExp(r'节省'), RegExp(r'如果'), RegExp(r'满意'),
-      RegExp(r'二维码'), RegExp(r'^\d{11,14}$'), // barcodes
+      RegExp(r'二维码'), RegExp(r'^\d{11,14}$'),
     ];
 
     for (final pattern in skipPatterns) {

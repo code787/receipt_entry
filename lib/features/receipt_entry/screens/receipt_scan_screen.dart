@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/receipt.dart';
 import '../../../data/models/receipt_item.dart';
+import '../../../data/models/receipt_template.dart';
 import '../../../providers/receipt_provider.dart';
+import '../../template_management/screens/template_management_screen.dart';
+import '../services/ocr_service.dart';
 
 class ReceiptScanScreen extends ConsumerStatefulWidget {
   final String photoPath;
@@ -31,6 +34,8 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   final _receiptNumberController = TextEditingController();
   String _selectedDate = '';
   bool _isProcessing = false;
+  ReceiptTemplate? _selectedTemplate;
+  List<ReceiptTemplate> _templates = [];
 
   @override
   void initState() {
@@ -43,6 +48,19 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     }
     if (widget.initialReceiptNumber != null) {
       _receiptNumberController.text = widget.initialReceiptNumber!;
+    }
+    _loadTemplates();
+  }
+
+  Future<void> _loadTemplates() async {
+    final repo = ref.read(templateRepositoryProvider);
+    final templates = await repo.getAllTemplates();
+    final defaultTemplate = await repo.getDefaultTemplate();
+    if (mounted) {
+      setState(() {
+        _templates = templates;
+        _selectedTemplate = defaultTemplate;
+      });
     }
   }
 
@@ -155,6 +173,33 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     }
   }
 
+  Future<void> _reparseWithTemplate() async {
+    setState(() => _isProcessing = true);
+    try {
+      final ocrService = OcrService.instance;
+      final items = await ocrService.parseReceiptItems(
+        widget.photoPath,
+        template: _selectedTemplate,
+      );
+      if (mounted) {
+        setState(() {
+          _items = items;
+          _isProcessing = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('重新识别到 ${items.length} 条商品')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('识别失败: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -188,6 +233,54 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
                 width: double.infinity,
                 fit: BoxFit.cover,
               ),
+            ),
+            const SizedBox(height: 16),
+
+            // Template selector
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<ReceiptTemplate>(
+                    initialValue: _selectedTemplate,
+                    decoration: const InputDecoration(
+                      labelText: '识别模板',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<ReceiptTemplate>(
+                        value: null,
+                        child: Text('默认模板'),
+                      ),
+                      ..._templates.map((t) => DropdownMenuItem<ReceiptTemplate>(
+                        value: t,
+                        child: Text(t.name),
+                      )),
+                    ],
+                    onChanged: (template) {
+                      setState(() => _selectedTemplate = template);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _reparseWithTemplate,
+                  tooltip: '用当前模板重新识别',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings),
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TemplateManagementScreen(),
+                      ),
+                    );
+                    _loadTemplates();
+                  },
+                  tooltip: '管理模板',
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 

@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:async';
 import '../../core/constants/app_constants.dart';
+import '../models/receipt_template.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
@@ -65,6 +66,22 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
+      CREATE TABLE receipt_templates (
+        ${AppConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_name TEXT NOT NULL,
+        template_store_name TEXT DEFAULT '',
+        item_pattern TEXT,
+        name_group TEXT,
+        qty_group TEXT,
+        unit_price_group TEXT,
+        total_price_group TEXT,
+        skip_pattern TEXT,
+        is_default INTEGER DEFAULT 0,
+        ${AppConstants.colCreatedAt} TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_receipt_items_receipt_id
       ON ${AppConstants.tableReceiptItems} (${AppConstants.colReceiptId})
     ''');
@@ -73,12 +90,43 @@ class DatabaseHelper {
       CREATE INDEX IF NOT EXISTS idx_product_prices_name
       ON ${AppConstants.tableProductPrices} (${AppConstants.colProductName})
     ''');
+
+    // Insert default templates
+    for (final template in ReceiptTemplate.defaultTemplates()) {
+      await db.insert('receipt_templates', template.toMap());
+    }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _addColumnIfNotExists(db, AppConstants.tableReceipts, AppConstants.colReceiptNumber, 'TEXT');
       await _addColumnIfNotExists(db, AppConstants.tableReceipts, AppConstants.colReceiptPhoto, 'TEXT');
+    }
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS receipt_templates (
+          ${AppConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+          template_name TEXT NOT NULL,
+          template_store_name TEXT DEFAULT '',
+          item_pattern TEXT,
+          name_group TEXT,
+          qty_group TEXT,
+          unit_price_group TEXT,
+          total_price_group TEXT,
+          skip_pattern TEXT,
+          is_default INTEGER DEFAULT 0,
+          ${AppConstants.colCreatedAt} TEXT NOT NULL
+        )
+      ''');
+      // Insert default templates if table is empty
+      final count = Sqflite.firstIntValue(
+        await db.rawQuery('SELECT COUNT(*) FROM receipt_templates'),
+      );
+      if (count == 0) {
+        for (final template in ReceiptTemplate.defaultTemplates()) {
+          await db.insert('receipt_templates', template.toMap());
+        }
+      }
     }
   }
 
