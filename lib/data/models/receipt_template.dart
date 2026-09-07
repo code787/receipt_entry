@@ -136,11 +136,11 @@ class ReceiptTemplate {
   /// 1    10.90 10.90                          ← price行
   static List<ReceiptTemplate> defaultTemplates() {
     return [
-      // 得瑞市格式：商品名(可能含条码) + 价格行
+      // 得瑞市格式：商品名(末尾含14位条码) + 价格行
       ReceiptTemplate(
         name: '得瑞市模板',
         storeName: '得瑞市',
-        namePattern: r'^(.+?)(\d{11,14})?\s*$',
+        namePattern: r'^(.+?)(\d{11,14})\s*$',
         nameGroup: '1',
         barcodeGroup: '2',
         pricePattern: r'^(\d+)\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s*$',

@@ -161,11 +161,13 @@ class OcrService {
                 orderIndex++;
                 continue;
               }
-              // 如果下一行不匹配 barcode，且 name 行已经包含条码，跳过 barcode 步骤
+              // 行不匹配 barcode：如果已有条码则跳过此步，否则跳过此行
               if (collectedBarcode != null) {
                 orderIndex++;
                 continue;
               }
+              lineIndex++;
+              break;
             } else if (expectedType == 'price' && priceRegex != null) {
               final match = priceRegex.firstMatch(nextLine);
               if (match != null) {
@@ -176,8 +178,10 @@ class OcrService {
                 orderIndex++;
                 break;
               }
+              // 行不匹配 price，跳过此行继续找
+              lineIndex++;
             } else {
-              break;
+              orderIndex++;
             }
           }
         }
