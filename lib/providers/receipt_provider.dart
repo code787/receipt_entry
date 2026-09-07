@@ -1,9 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/receipt_repository.dart';
+import '../data/repositories/template_repository.dart';
 import '../data/models/product_price.dart';
 
 final receiptRepositoryProvider = Provider<ReceiptRepository>((ref) {
   return ReceiptRepository();
+});
+
+final templateRepositoryProvider = Provider<TemplateRepository>((ref) {
+  return TemplateRepository();
 });
 
 final receiptsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {

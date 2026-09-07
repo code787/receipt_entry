@@ -15,23 +15,22 @@ class OcrService {
     return _cleanOcrText(recognizedText.text);
   }
 
-  /// Clean OCR text to fix common issues
   String _cleanOcrText(String text) {
     var cleaned = text;
 
-    // Fix "10. 90" → "10.90" (space after dot in numbers)
+    // Fix "10. 90" → "10.90"
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'(\d+)\.\s+(\d+)'),
       (m) => '${m.group(1)}.${m.group(2)}',
     );
 
-    // Fix "10 ." → "10." (space before dot)
+    // Fix "10 ." → "10."
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'(\d+)\s+\.(\d)'),
       (m) => '${m.group(1)}.${m.group(2)}',
     );
 
-    // Clean barcode: remove all spaces from barcode lines (11-14 digits)
+    // Clean barcode: remove spaces from barcode-like lines
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'^(\d[\d\s]{10,16}\d)$', multiLine: true),
       (m) => m.group(0)!.replaceAll(RegExp(r'\s'), ''),
@@ -78,61 +77,130 @@ class OcrService {
     return match?.group(1);
   }
 
+  /// 多行模板解析：按 lineOrder 顺序逐行匹配，组合成商品
   List<ReceiptItem> _parseWithTemplate(String text, ReceiptTemplate template) {
     final items = <ReceiptItem>[];
     final lines = text.split('\n').map((l) => l.trim()).toList();
 
+    // 编译所有正则
     RegExp? skipRegex;
     if (template.skipPattern != null && template.skipPattern!.isNotEmpty) {
-      try {
-        skipRegex = RegExp(template.skipPattern!, multiLine: true, caseSensitive: false);
-      } catch (_) {}
+      try { skipRegex = RegExp(template.skipPattern!, caseSensitive: false); } catch (_) {}
     }
 
-    RegExp? itemRegex;
-    if (template.itemPattern != null && template.itemPattern!.isNotEmpty) {
-      try {
-        itemRegex = RegExp(template.itemPattern!, multiLine: true, caseSensitive: false);
-      } catch (_) {}
+    RegExp? nameRegex;
+    if (template.namePattern != null && template.namePattern!.isNotEmpty) {
+      try { nameRegex = RegExp(template.namePattern!, caseSensitive: false); } catch (_) {}
     }
 
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      if (line.isEmpty) continue;
-      if (skipRegex != null && skipRegex.hasMatch(line)) continue;
-      if (itemRegex == null) continue;
+    RegExp? barcodeRegex;
+    if (template.barcodePattern != null && template.barcodePattern!.isNotEmpty) {
+      try { barcodeRegex = RegExp(template.barcodePattern!, caseSensitive: false); } catch (_) {}
+    }
 
-      final match = itemRegex.firstMatch(line);
-      if (match == null) continue;
+    RegExp? priceRegex;
+    if (template.pricePattern != null && template.pricePattern!.isNotEmpty) {
+      try { priceRegex = RegExp(template.pricePattern!, caseSensitive: false); } catch (_) {}
+    }
 
-      final name = _extractGroup(match, template.nameGroup);
-      final barcode = _extractGroup(match, template.barcodeGroup);
-      final qty = _extractGroup(match, template.qtyGroup);
-      final unitPrice = _extractGroup(match, template.unitPriceGroup);
-      final totalPrice = _extractGroup(match, template.totalPriceGroup);
+    final lineOrder = template.parsedLineOrder;
 
-      if (name == null || name.isEmpty) continue;
+    // 逐行扫描，按 lineOrder 顺序收集字段
+    int lineIndex = 0;
 
-      // If no barcode from regex, try next line
-      String? finalBarcode = barcode;
-      if (finalBarcode == null && i + 1 < lines.length) {
-        final nextLine = lines[i + 1];
-        final barcodeMatch = RegExp(r'^(\d{11,14})$').firstMatch(nextLine);
-        if (barcodeMatch != null) {
-          finalBarcode = barcodeMatch.group(1);
+    while (lineIndex < lines.length) {
+      final line = lines[lineIndex];
+
+      // 跳过空行和匹配 skipPattern 的行
+      if (line.isEmpty || (skipRegex != null && skipRegex.hasMatch(line))) {
+        lineIndex++;
+        continue;
+      }
+
+      // 尝试匹配第一个期望的行类型（通常是 name）
+      String? collectedName;
+      String? collectedBarcode;
+      String? collectedQty;
+      String? collectedUnitPrice;
+      String? collectedTotalPrice;
+
+      int orderIndex = 0;
+
+      // 先匹配 name 行
+      if (orderIndex < lineOrder.length && lineOrder[orderIndex] == 'name' && nameRegex != null) {
+        final match = nameRegex.firstMatch(line);
+        if (match != null) {
+          collectedName = _extractGroup(match, template.nameGroup);
+
+          // 如果 namePattern 同时包含条码（如得瑞市格式），提取条码
+          if (template.barcodeGroup != null) {
+            final bc = _extractGroup(match, template.barcodeGroup);
+            if (bc != null && bc.isNotEmpty) {
+              collectedBarcode = bc;
+            }
+          }
+
+          lineIndex++;
+          orderIndex++;
+
+          // 继续匹配后续行类型
+          while (orderIndex < lineOrder.length && lineIndex < lines.length) {
+            final nextLine = lines[lineIndex];
+            if (nextLine.isEmpty || (skipRegex != null && skipRegex.hasMatch(nextLine))) {
+              lineIndex++;
+              continue;
+            }
+
+            final expectedType = lineOrder[orderIndex];
+
+            if (expectedType == 'barcode' && barcodeRegex != null) {
+              final match = barcodeRegex.firstMatch(nextLine);
+              if (match != null) {
+                collectedBarcode = _extractGroup(match, template.barcodeGroup) ?? match.group(0);
+                lineIndex++;
+                orderIndex++;
+                continue;
+              }
+              // 如果下一行不匹配 barcode，且 name 行已经包含条码，跳过 barcode 步骤
+              if (collectedBarcode != null) {
+                orderIndex++;
+                continue;
+              }
+            } else if (expectedType == 'price' && priceRegex != null) {
+              final match = priceRegex.firstMatch(nextLine);
+              if (match != null) {
+                collectedQty = _extractGroup(match, template.qtyGroup);
+                collectedUnitPrice = _extractGroup(match, template.unitPriceGroup);
+                collectedTotalPrice = _extractGroup(match, template.totalPriceGroup);
+                lineIndex++;
+                orderIndex++;
+                break;
+              }
+            } else {
+              break;
+            }
+          }
         }
       }
 
-      final parsedQty = qty != null ? (int.tryParse(qty) ?? 1) : 1;
-      final parsedUnitPrice = unitPrice != null ? (double.tryParse(unitPrice) ?? 0.0) : 0.0;
-      final parsedTotalPrice = totalPrice != null ? (double.tryParse(totalPrice) ?? 0.0) : 0.0;
+      // 如果 name 行没匹配上，跳过这一行继续
+      if (collectedName == null || collectedName.isEmpty) {
+        lineIndex++;
+        continue;
+      }
 
+      // 解析数值
+      final parsedQty = collectedQty != null ? (int.tryParse(collectedQty) ?? 1) : 1;
+      final parsedUnitPrice = collectedUnitPrice != null ? (double.tryParse(collectedUnitPrice) ?? 0.0) : 0.0;
+      final parsedTotalPrice = collectedTotalPrice != null ? (double.tryParse(collectedTotalPrice) ?? 0.0) : 0.0;
+
+      // 至少要有价格
       if (parsedTotalPrice <= 0 && parsedUnitPrice <= 0) continue;
 
       items.add(ReceiptItem(
         receiptId: 0,
-        productName: name,
-        barcode: finalBarcode,
+        productName: collectedName,
+        barcode: collectedBarcode,
         quantity: parsedQty,
         unitPrice: parsedUnitPrice > 0 ? parsedUnitPrice : parsedTotalPrice,
         totalPrice: parsedTotalPrice > 0 ? parsedTotalPrice : parsedUnitPrice * parsedQty,
@@ -149,6 +217,7 @@ class OcrService {
     return match.group(groupIndex);
   }
 
+  /// 无模板时的默认解析
   List<ReceiptItem> _parseTextToItems(String text) {
     final items = <ReceiptItem>[];
     final lines = text.split('\n').map((l) => l.trim()).toList();
@@ -156,15 +225,11 @@ class OcrService {
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i];
       if (line.isEmpty) continue;
-
-      // Skip barcode-only lines
       if (RegExp(r'^\d{11,14}$').hasMatch(line)) continue;
-
       if (_isNonItemLine(line)) continue;
 
       final item = _parseItemLine(line);
       if (item != null) {
-        // Extract barcode from next line
         String? barcode;
         if (i + 1 < lines.length) {
           final nextLine = lines[i + 1];
@@ -173,7 +238,6 @@ class OcrService {
             barcode = barcodeMatch.group(1);
           }
         }
-
         items.add(item.copyWith(barcode: barcode));
       }
     }

@@ -66,22 +66,7 @@ class DatabaseHelper {
       )
     ''');
 
-    await db.execute('''
-      CREATE TABLE receipt_templates (
-        ${AppConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
-        template_name TEXT NOT NULL,
-        template_store_name TEXT DEFAULT '',
-        item_pattern TEXT,
-        name_group TEXT,
-        barcode_group TEXT,
-        qty_group TEXT,
-        unit_price_group TEXT,
-        total_price_group TEXT,
-        skip_pattern TEXT,
-        is_default INTEGER DEFAULT 0,
-        ${AppConstants.colCreatedAt} TEXT NOT NULL
-      )
-    ''');
+    await _createTemplateTable(db);
 
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_receipt_items_receipt_id
@@ -99,28 +84,35 @@ class DatabaseHelper {
     }
   }
 
+  Future<void> _createTemplateTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE receipt_templates (
+        ${AppConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_name TEXT NOT NULL,
+        template_store_name TEXT DEFAULT '',
+        name_pattern TEXT,
+        barcode_pattern TEXT,
+        price_pattern TEXT,
+        name_group TEXT,
+        barcode_group TEXT,
+        qty_group TEXT,
+        unit_price_group TEXT,
+        total_price_group TEXT,
+        skip_pattern TEXT,
+        line_order TEXT,
+        is_default INTEGER DEFAULT 0,
+        ${AppConstants.colCreatedAt} TEXT NOT NULL
+      )
+    ''');
+  }
+
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _addColumnIfNotExists(db, AppConstants.tableReceipts, AppConstants.colReceiptNumber, 'TEXT');
       await _addColumnIfNotExists(db, AppConstants.tableReceipts, AppConstants.colReceiptPhoto, 'TEXT');
     }
     if (oldVersion < 3) {
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS receipt_templates (
-          ${AppConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
-          template_name TEXT NOT NULL,
-          template_store_name TEXT DEFAULT '',
-          item_pattern TEXT,
-          name_group TEXT,
-          qty_group TEXT,
-          unit_price_group TEXT,
-          total_price_group TEXT,
-          skip_pattern TEXT,
-          is_default INTEGER DEFAULT 0,
-          ${AppConstants.colCreatedAt} TEXT NOT NULL
-        )
-      ''');
-      // Insert default templates if table is empty
+      await _createTemplateTable(db);
       final count = Sqflite.firstIntValue(
         await db.rawQuery('SELECT COUNT(*) FROM receipt_templates'),
       );
@@ -133,8 +125,13 @@ class DatabaseHelper {
     if (oldVersion < 4) {
       await _addColumnIfNotExists(db, AppConstants.tableReceiptItems, AppConstants.colBarcode, 'TEXT');
     }
-    if (oldVersion < 5) {
-      await _addColumnIfNotExists(db, 'receipt_templates', 'barcode_group', 'TEXT');
+    if (oldVersion < 6) {
+      // Recreate template table with new schema (v6)
+      await db.execute('DROP TABLE IF EXISTS receipt_templates');
+      await _createTemplateTable(db);
+      for (final template in ReceiptTemplate.defaultTemplates()) {
+        await db.insert('receipt_templates', template.toMap());
+      }
     }
   }
 
