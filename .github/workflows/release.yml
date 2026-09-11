@@ -26,10 +26,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build Web Application
         run: npm run build
@@ -42,31 +41,25 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-          cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses & setup platform
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
 
       - name: Make gradlew executable
         run: chmod +x ./android/gradlew
 
-      - name: Build Release APK
+      - name: Build Android APKs
         run: |
           cd android
-          ./gradlew assembleRelease --stacktrace
-
-      - name: Build Debug APK
-        run: |
-          cd android
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: receipt-entry-${{ github.event.inputs.version }}
-          path: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/**/*.apk
           retention-days: 30
 
       - name: Create Release
@@ -81,12 +74,6 @@ jobs:
             - 版本：${{ github.event.inputs.version }}
             - 构建号：${{ github.run_number }}
             - 提交 SHA: ${{ github.sha }}
-
-            ### 安装包下载：
-            - [app-release.apk (推荐安装)](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version }}/app-release.apk)
-            - [app-debug.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version }}/app-debug.apk)
-          files: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/apk/debug/app-debug.apk
+          files: android/app/build/outputs/apk/**/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
