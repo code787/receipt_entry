@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Build and Release APK
 
 on:
   workflow_dispatch:
@@ -8,17 +8,34 @@ on:
         required: true
         type: string
 
-env:
-  PUB_HOSTED_URL: https://pub.flutter-io.cn
-  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
-
 jobs:
   build:
+    name: Build & Release APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -27,53 +44,49 @@ jobs:
           java-version: '21'
           cache: gradle
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.3'
-          channel: 'stable'
-          cache: true
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Configure Gradle TLS
-        run: |
-          echo "systemProp.https.protocols=TLSv1.2,TLSv1.3" >> android/gradle.properties
-          echo "systemProp.jdk.tls.client.protocols=TLSv1.2,TLSv1.3" >> android/gradle.properties
-
-      - name: Get dependencies
-        run: |
-          for i in 1 2 3; do
-            flutter pub get && break || sleep 10
-          done
-
-      - name: Analyze
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
-
-      - name: Test
-        run: flutter test
+      - name: Make gradlew executable
+        run: chmod +x ./android/gradlew
 
       - name: Build Release APK
-        run: flutter build apk --release --build-name=${{ github.event.inputs.version }} --build-number=${{ github.run_number }}
+        run: |
+          cd android
+          ./gradlew assembleRelease --stacktrace
 
-      - name: Upload APK
+      - name: Build Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: receipt-entry-${{ github.event.inputs.version }}-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: receipt-entry-${{ github.event.inputs.version }}
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: success()
         with:
           tag_name: ${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
           body: |
-            ## Changes
-            - Built from commit ${{ github.sha }}
-            - Build number: ${{ github.run_number }}
-            
-            ## Download
-            - [app-release.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version }}/app-release.apk)
-          files: build/app/outputs/flutter-apk/app-release.apk
+            ## 小票录入系统 Android APK 发布
+
+            - 版本：${{ github.event.inputs.version }}
+            - 构建号：${{ github.run_number }}
+            - 提交 SHA: ${{ github.sha }}
+
+            ### 安装包下载：
+            - [app-release.apk (推荐安装)](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version }}/app-release.apk)
+            - [app-debug.apk](https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.version }}/app-debug.apk)
+          files: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

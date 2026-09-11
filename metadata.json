@@ -1,0 +1,6 @@
+{
+  "name": "小票录入系统",
+  "description": "小票录入系统 - 支持小票录入、OCR扫描识别、价格记录与查询、购买金额分析及模板管理",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
