@@ -13,21 +13,43 @@ class OcrService {
     final inputImage = InputImage.fromFilePath(imagePath);
     final recognizedText = await _textRecognizer.processImage(inputImage);
 
-    // 按 Y 坐标排序 blocks，确保严格按图片从上到下的顺序
+    // 按 Y 坐标排序 blocks
     final sortedBlocks = List<TextBlock>.from(recognizedText.blocks);
     sortedBlocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
-    final buffer = StringBuffer();
+    // 收集所有 lines 并按 Y 排序
+    final allLines = <TextLine>[];
     for (final block in sortedBlocks) {
-      // block 内的 lines 也按 Y 排序
       final sortedLines = List<TextLine>.from(block.lines);
       sortedLines.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-      for (final line in sortedLines) {
-        buffer.writeln(line.text);
-      }
+      allLines.addAll(sortedLines);
     }
 
-    return _cleanOcrText(buffer.toString());
+    // 合并距离过近的行（同一行被拆分的情况）
+    final mergedLines = <String>[];
+    if (allLines.isNotEmpty) {
+      var currentText = allLines.first.text;
+      var currentBottom = allLines.first.boundingBox.bottom;
+      final lineHeight = allLines.first.boundingBox.height;
+
+      for (int i = 1; i < allLines.length; i++) {
+        final line = allLines[i];
+        final gap = line.boundingBox.top - currentBottom;
+
+        // 如果行间距小于行高的一半，认为是同一行被拆分
+        if (gap < lineHeight * 0.5) {
+          currentText += line.text;
+          currentBottom = line.boundingBox.bottom;
+        } else {
+          mergedLines.add(currentText);
+          currentText = line.text;
+          currentBottom = line.boundingBox.bottom;
+        }
+      }
+      mergedLines.add(currentText);
+    }
+
+    return _cleanOcrText(mergedLines.join('\n'));
   }
 
   String _cleanOcrText(String text) {
