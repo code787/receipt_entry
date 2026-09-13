@@ -36,8 +36,12 @@ class OcrService {
         final line = allLines[i];
         final gap = line.boundingBox.top - currentBottom;
 
-        // 如果行间距小于行高的一半，认为是同一行被拆分
-        if (gap < lineHeight * 0.5) {
+        // 如果行间距小于行高的一半，且当前行不是以价格/数字结尾，才合并
+        final shouldMerge = gap < lineHeight * 0.5 &&
+            !_looksLikePriceEnd(currentText) &&
+            !_looksLikeChineseStart(line.text);
+
+        if (shouldMerge) {
           currentText += line.text;
           currentBottom = line.boundingBox.bottom;
         } else {
@@ -74,6 +78,23 @@ class OcrService {
     );
 
     return cleaned;
+  }
+
+  /// 判断文本是否以价格/数字模式结尾（如 "10.90"、"25.00"）
+  bool _looksLikePriceEnd(String text) {
+    final trimmed = text.trimRight();
+    // 以数字结尾，且前面有空格或小数点（价格特征）
+    return RegExp(r'(\d+\.?\d*)\s*$').hasMatch(trimmed) &&
+        RegExp(r'\s\d+\.?\d*$').hasMatch(trimmed);
+  }
+
+  /// 判断文本是否以中文字符开头（商品名特征）
+  bool _looksLikeChineseStart(String text) {
+    final trimmed = text.trimLeft();
+    if (trimmed.isEmpty) return false;
+    final firstChar = trimmed.codeUnitAt(0);
+    // 中文 Unicode 范围：0x4E00-0x9FFF
+    return firstChar >= 0x4E00 && firstChar <= 0x9FFF;
   }
 
   Future<List<ReceiptItem>> parseReceiptItems(String imagePath, {ReceiptTemplate? template}) async {
