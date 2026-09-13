@@ -13,6 +13,7 @@ class ReceiptScanScreen extends ConsumerStatefulWidget {
   final List<ReceiptItem> initialItems;
   final String? initialStoreName;
   final String? initialReceiptNumber;
+  final String? rawOcrText;
 
   const ReceiptScanScreen({
     super.key,
@@ -20,6 +21,7 @@ class ReceiptScanScreen extends ConsumerStatefulWidget {
     this.initialItems = const [],
     this.initialStoreName,
     this.initialReceiptNumber,
+    this.rawOcrText,
   });
 
   @override
@@ -28,6 +30,7 @@ class ReceiptScanScreen extends ConsumerStatefulWidget {
 
 class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   late List<ReceiptItem> _items;
+  late String _currentRawText;
   final _storeNameController = TextEditingController();
   final _dateController = TextEditingController();
   final _noteController = TextEditingController();
@@ -41,6 +44,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
   void initState() {
     super.initState();
     _items = List.from(widget.initialItems);
+    _currentRawText = widget.rawOcrText ?? '';
     _selectedDate = DateTime.now().toString().substring(0, 10);
     _dateController.text = _selectedDate;
     if (widget.initialStoreName != null) {
@@ -176,10 +180,11 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
     }
   }
 
-  Future<void> _reparseWithTemplate() async {
+    Future<void> _reparseWithTemplate() async {
     setState(() => _isProcessing = true);
     try {
       final ocrService = OcrService.instance;
+      final rawText = await ocrService.recognizeText(widget.photoPath);
       final items = await ocrService.parseReceiptItems(
         widget.photoPath,
         template: _selectedTemplate,
@@ -187,6 +192,7 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
       if (mounted) {
         setState(() {
           _items = items;
+          _currentRawText = rawText;
           _isProcessing = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -201,6 +207,49 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
         );
       }
     }
+  }
+
+  void _showRawOcrText() {
+    if (_currentRawText.isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppBar(
+                title: const Text('OCR原始内容'),
+                automaticallyImplyLeading: false,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: SelectableText(
+                    _currentRawText,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -299,6 +348,12 @@ class _ReceiptScanScreenState extends ConsumerState<ReceiptScanScreen> {
                   },
                   tooltip: '管理模板',
                 ),
+                if (_currentRawText.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.text_snippet),
+                    onPressed: _showRawOcrText,
+                    tooltip: '查看原始OCR内容',
+                  ),
               ],
             ),
             const SizedBox(height: 16),

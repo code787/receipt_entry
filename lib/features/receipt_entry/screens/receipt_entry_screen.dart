@@ -159,6 +159,7 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
               initialItems: items,
               initialStoreName: storeName,
               initialReceiptNumber: receiptNumber,
+              rawOcrText: fullText,
             ),
           ),
         );
