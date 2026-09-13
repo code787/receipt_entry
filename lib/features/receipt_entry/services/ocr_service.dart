@@ -12,7 +12,22 @@ class OcrService {
   Future<String> recognizeText(String imagePath) async {
     final inputImage = InputImage.fromFilePath(imagePath);
     final recognizedText = await _textRecognizer.processImage(inputImage);
-    return _cleanOcrText(recognizedText.text);
+
+    // 按 Y 坐标排序 blocks，确保严格按图片从上到下的顺序
+    final sortedBlocks = List<TextBlock>.from(recognizedText.blocks);
+    sortedBlocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
+
+    final buffer = StringBuffer();
+    for (final block in sortedBlocks) {
+      // block 内的 lines 也按 Y 排序
+      final sortedLines = List<TextLine>.from(block.lines);
+      sortedLines.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
+      for (final line in sortedLines) {
+        buffer.writeln(line.text);
+      }
+    }
+
+    return _cleanOcrText(buffer.toString());
   }
 
   String _cleanOcrText(String text) {
