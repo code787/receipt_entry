@@ -5,7 +5,7 @@ class ReceiptItem {
   final int receiptId;
   final String productName;
   final String? barcode;
-  final int quantity;
+  final double quantity;
   final double unitPrice;
   final double totalPrice;
 
@@ -48,7 +48,7 @@ class ReceiptItem {
     int? receiptId,
     String? productName,
     String? barcode,
-    int? quantity,
+    double? quantity,
     double? unitPrice,
     double? totalPrice,
   }) {

@@ -77,7 +77,14 @@ class OcrService {
       (m) => '${m.group(1)} ${m.group(2)}',
     );
 
-    // Clean barcode: remove spaces from barcode-like lines (13-14 digits)
+    // Fix barcode split by space: "2107068027 1400" → "21070680271400"
+    // 条码10位 + 空格 + 3-4位数字 → 合并为13-14位条码
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'^(\d{10})\s+(\d{3,4})\s+', multiLine: true),
+      (m) => '${m.group(1)}${m.group(2)} ',
+    );
+
+    // Clean barcode: remove spaces from standalone barcode lines (13-14 digits)
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'^(\d[\d\s]{11,16}\d)$', multiLine: true),
       (m) => m.group(0)!.replaceAll(RegExp(r'\s'), ''),
@@ -241,7 +248,7 @@ class OcrService {
       }
 
       // 解析数值
-      final parsedQty = collectedQty != null ? (int.tryParse(collectedQty) ?? 1) : 1;
+      final parsedQty = collectedQty != null ? (double.tryParse(collectedQty) ?? 1.0) : 1.0;
       final parsedUnitPrice = collectedUnitPrice != null ? (double.tryParse(collectedUnitPrice) ?? 0.0) : 0.0;
       final parsedTotalPrice = collectedTotalPrice != null ? (double.tryParse(collectedTotalPrice) ?? 0.0) : 0.0;
 
@@ -319,7 +326,7 @@ class OcrService {
     final match2 = pattern2.firstMatch(line);
     if (match2 != null) {
       final name = match2.group(1)!.trim();
-      final qty = int.parse(match2.group(2)!);
+      final qty = double.parse(match2.group(2)!);
       final unitPrice = double.parse(match2.group(3)!);
       final totalPrice = double.parse(match2.group(4)!);
       if (_isValidItemName(name) && unitPrice > 0) {

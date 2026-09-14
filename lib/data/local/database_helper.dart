@@ -48,7 +48,7 @@ class DatabaseHelper {
         ${AppConstants.colReceiptId} INTEGER NOT NULL,
         ${AppConstants.colProductName} TEXT NOT NULL,
         ${AppConstants.colBarcode} TEXT,
-        ${AppConstants.colQuantity} INTEGER NOT NULL DEFAULT 1,
+        ${AppConstants.colQuantity} REAL NOT NULL DEFAULT 1,
         ${AppConstants.colUnitPrice} REAL NOT NULL DEFAULT 0,
         ${AppConstants.colTotalPrice} REAL NOT NULL DEFAULT 0,
         FOREIGN KEY (${AppConstants.colReceiptId}) REFERENCES ${AppConstants.tableReceipts} (${AppConstants.colId}) ON DELETE CASCADE
@@ -132,6 +132,29 @@ class DatabaseHelper {
       for (final template in ReceiptTemplate.defaultTemplates()) {
         await db.insert('receipt_templates', template.toMap());
       }
+    }
+    if (oldVersion < 7) {
+      // Recreate receipt_items table with REAL quantity (v7)
+      await db.execute('CREATE TABLE receipt_items_new AS SELECT * FROM ${AppConstants.tableReceiptItems}');
+      await db.execute('DROP TABLE ${AppConstants.tableReceiptItems}');
+      await db.execute('''
+        CREATE TABLE ${AppConstants.tableReceiptItems} (
+          ${AppConstants.colId} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${AppConstants.colReceiptId} INTEGER NOT NULL,
+          ${AppConstants.colProductName} TEXT NOT NULL,
+          ${AppConstants.colBarcode} TEXT,
+          ${AppConstants.colQuantity} REAL NOT NULL DEFAULT 1,
+          ${AppConstants.colUnitPrice} REAL NOT NULL DEFAULT 0,
+          ${AppConstants.colTotalPrice} REAL NOT NULL DEFAULT 0,
+          FOREIGN KEY (${AppConstants.colReceiptId}) REFERENCES ${AppConstants.tableReceipts} (${AppConstants.colId}) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('INSERT INTO ${AppConstants.tableReceiptItems} SELECT * FROM receipt_items_new');
+      await db.execute('DROP TABLE receipt_items_new');
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_receipt_items_receipt_id
+        ON ${AppConstants.tableReceiptItems} (${AppConstants.colReceiptId})
+      ''');
     }
   }
 

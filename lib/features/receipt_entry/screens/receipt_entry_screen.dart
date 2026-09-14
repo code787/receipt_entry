@@ -398,7 +398,7 @@ class _ReceiptEntryScreenState extends ConsumerState<ReceiptEntryScreen> {
 }
 
 class _AddItemDialog extends StatefulWidget {
-  final Function(String, int, double) onAdd;
+  final Function(String, double, double) onAdd;
   const _AddItemDialog({required this.onAdd});
 
   @override
@@ -420,7 +420,7 @@ class __AddItemDialogState extends State<_AddItemDialog> {
 
   void _save() {
     final name = _nameController.text.trim();
-    final qty = int.tryParse(_qtyController.text) ?? 1;
+    final qty = double.tryParse(_qtyController.text) ?? 1.0;
     final price = double.tryParse(_priceController.text) ?? 0.0;
     if (name.isEmpty || price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入有效的商品信息')));

@@ -507,7 +507,7 @@ class _EditItemDialog extends StatefulWidget {
   final String? initialBarcode;
   final String? initialQty;
   final String? initialPrice;
-  final Function(String, String?, int, double) onSave;
+  final Function(String, String?, double, double) onSave;
 
   const _EditItemDialog({
     this.initialName,
@@ -548,7 +548,7 @@ class __EditItemDialogState extends State<_EditItemDialog> {
   void _save() {
     final name = _nameController.text.trim();
     final barcode = _barcodeController.text.trim().isEmpty ? null : _barcodeController.text.trim();
-    final qty = int.tryParse(_qtyController.text) ?? 1;
+    final qty = double.tryParse(_qtyController.text) ?? 1.0;
     final price = double.tryParse(_priceController.text) ?? 0.0;
     if (name.isEmpty || price <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -142,7 +142,7 @@ class ReceiptTemplate {
         storeName: '',
         namePattern: r'^(.+?)\s*\(.*\)\s*$',
         nameGroup: '1',
-        pricePattern: r'^(\d{13,14})\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s*$',
+        pricePattern: r'^(\d{10,14})\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s*$',
         barcodeGroup: '1',
         qtyGroup: '2',
         unitPriceGroup: '3',
