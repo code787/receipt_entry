@@ -68,6 +68,14 @@ jobs:
         continue-on-error: true
         run: flutter test
 
+      - name: Pre-download Gradle
+        run: |
+          GRADLE_URL="https://services.gradle.org/distributions/gradle-9.1.0-bin.zip"
+          for i in 1 2 3 4 5; do
+            echo "Attempt $i/5: Downloading Gradle 9.1.0..."
+            curl -L --retry 3 --retry-delay 10 -o /tmp/gradle.zip "$GRADLE_URL" && break || { echo "Failed, waiting 20s..."; sleep 20; }
+          done
+
       - name: Build Debug APK
         run: |
           for i in 1 2 3; do
