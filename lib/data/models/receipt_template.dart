@@ -132,10 +132,25 @@ class ReceiptTemplate {
   }
 
   /// 得瑞市厦门大悦城店 格式示例：
-  /// 三元白雪原味酸奶100g/杯2123321003487   ← name行（含条码）
-  /// 1    10.90 10.90                          ← price行
+  /// 大白菜 kg (1t1)                             ← name行
+  /// 21060220078002 2.18 3.18 6.93               ← price行（条码 数量 单价 金额）
   static List<ReceiptTemplate> defaultTemplates() {
     return [
+      // 得瑞市/超市通用格式：商品名 + 价格行（条码 数量 单价 金额）
+      ReceiptTemplate(
+        name: '超市小票模板',
+        storeName: '',
+        namePattern: r'^(.+?)\s*\(.*\)\s*$',
+        nameGroup: '1',
+        pricePattern: r'^(\d{13,14})\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s*$',
+        barcodeGroup: '1',
+        qtyGroup: '2',
+        unitPriceGroup: '3',
+        totalPriceGroup: '4',
+        skipPattern: r'交易时间|品名|数量|单价|金额|合计|总计|单号|店号|工号|谢谢|欢迎|应收|实收|找零|件数',
+        lineOrder: 'name,price',
+        isDefault: true,
+      ),
       // 得瑞市格式：商品名(末尾含14位条码) + 价格行
       ReceiptTemplate(
         name: '得瑞市模板',
@@ -147,13 +162,12 @@ class ReceiptTemplate {
         qtyGroup: '1',
         unitPriceGroup: '2',
         totalPriceGroup: '3',
-        skipPattern: r'品名|数量|单价|金额|合计|总计|单号|店号|工号|谢谢|欢迎',
+        skipPattern: r'交易时间|品名|数量|单价|金额|合计|总计|单号|店号|工号|谢谢|欢迎',
         lineOrder: 'name,price',
-        isDefault: true,
       ),
       // 超市散称商品：商品名 + 条码(下一行) + 价格(再下一行)
       ReceiptTemplate(
-        name: '超市散称（含条码）',
+        name: '散称商品（条码单独行）',
         namePattern: r'^(.+?/kg)\s*$',
         nameGroup: '1',
         barcodePattern: r'^(\d{11,14})$',
@@ -164,31 +178,6 @@ class ReceiptTemplate {
         totalPriceGroup: '3',
         skipPattern: r'品名|数量|单价|金额|合计|总计',
         lineOrder: 'name,barcode,price',
-      ),
-      // 超市包装商品：商品名 + 条码 + 数量. 单价 金额
-      ReceiptTemplate(
-        name: '超市包装商品',
-        namePattern: r'^(.+?)\s*$',
-        nameGroup: '1',
-        barcodePattern: r'^(\d{11,14})$',
-        barcodeGroup: '1',
-        pricePattern: r'^(\d+)\.?\s+(\d+\.?\d*)\s+(\d+\.?\d*)$',
-        qtyGroup: '1',
-        unitPriceGroup: '2',
-        totalPriceGroup: '3',
-        skipPattern: r'品名|数量|单价|金额|合计|总计',
-        lineOrder: 'name,barcode,price',
-      ),
-      // 单行格式：商品名 + 数量 + 单价 + 金额（传统小票）
-      ReceiptTemplate(
-        name: '单行格式（传统小票）',
-        namePattern: r'^(.+?)\s+(\d+)\s+(\d+\.?\d*)\s+(\d+\.?\d*)\s*$',
-        nameGroup: '1',
-        qtyGroup: '2',
-        unitPriceGroup: '3',
-        totalPriceGroup: '4',
-        skipPattern: r'品名|数量|单价|金额|合计|总计',
-        lineOrder: 'name',
       ),
     ];
   }

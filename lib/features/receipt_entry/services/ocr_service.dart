@@ -59,21 +59,27 @@ class OcrService {
   String _cleanOcrText(String text) {
     var cleaned = text;
 
-    // Fix "10. 90" → "10.90"
+    // Fix "10. 90" → "10.90" (空格在小数点后)
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'(\d+)\.\s+(\d+)'),
       (m) => '${m.group(1)}.${m.group(2)}',
     );
 
-    // Fix "10 ." → "10."
+    // Fix "10 ." → "10." (空格在小数点前)
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'(\d+)\s+\.(\d)'),
       (m) => '${m.group(1)}.${m.group(2)}',
     );
 
-    // Clean barcode: remove spaces from barcode-like lines
+    // Fix "39.778.59" → "39.77 8.59" (两个价格连在一起)
     cleaned = cleaned.replaceAllMapped(
-      RegExp(r'^(\d[\d\s]{10,16}\d)$', multiLine: true),
+      RegExp(r'(\d+\.\d{2})(\d+\.\d{2})'),
+      (m) => '${m.group(1)} ${m.group(2)}',
+    );
+
+    // Clean barcode: remove spaces from barcode-like lines (13-14 digits)
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'^(\d[\d\s]{11,16}\d)$', multiLine: true),
       (m) => m.group(0)!.replaceAll(RegExp(r'\s'), ''),
     );
 
