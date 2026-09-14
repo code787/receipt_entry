@@ -21,20 +21,11 @@ android {
         create("release") {
             // 优先从环境变量读取签名配置（CI/CD 用）
             val storeFileEnv = System.getenv("KEYSTORE_FILE")
-            if (storeFileEnv != null) {
+            if (!storeFileEnv.isNullOrEmpty()) {
                 storeFile = file(storeFileEnv)
                 storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
                 keyAlias = System.getenv("KEY_ALIAS") ?: ""
                 keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-            } else {
-                // 本地开发：使用 debug 签名
-                val debugStore = gradle.gradleUserHomeDir.resolve("android/debug.keystore")
-                if (debugStore.exists()) {
-                    storeFile = debugStore
-                    storePassword = "android"
-                    keyAlias = "androiddebugkey"
-                    keyPassword = "android"
-                }
             }
         }
     }
@@ -49,7 +40,12 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            val storeFileEnv = System.getenv("KEYSTORE_FILE")
+            signingConfig = if (!storeFileEnv.isNullOrEmpty()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
