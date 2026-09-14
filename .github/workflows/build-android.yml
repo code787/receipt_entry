@@ -69,7 +69,11 @@ jobs:
         run: flutter test
 
       - name: Build Debug APK
-        run: flutter build apk --debug
+        run: |
+          for i in 1 2 3; do
+            echo "Attempt $i/3: flutter build apk --debug"
+            flutter build apk --debug && break || { echo "Failed, waiting 30s..."; sleep 30; }
+          done
 
       - name: Build Release APK
         env:
@@ -77,7 +81,11 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: flutter build apk --release
+        run: |
+          for i in 1 2 3; do
+            echo "Attempt $i/3: flutter build apk --release"
+            flutter build apk --release && break || { echo "Failed, waiting 30s..."; sleep 30; }
+          done
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
