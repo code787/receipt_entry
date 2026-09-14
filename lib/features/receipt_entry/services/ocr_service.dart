@@ -13,21 +13,47 @@ class OcrService {
     final inputImage = InputImage.fromFilePath(imagePath);
     final recognizedText = await _textRecognizer.processImage(inputImage);
 
-    // 按 Y 坐标排序 blocks
-    final sortedBlocks = List<TextBlock>.from(recognizedText.blocks);
-    sortedBlocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-
-    // 严格按原始行输出，不做任何合并
-    final allLines = <String>[];
-    for (final block in sortedBlocks) {
-      final sortedLines = List<TextLine>.from(block.lines);
-      sortedLines.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-      for (final line in sortedLines) {
-        allLines.add(line.text);
-      }
+    // 收集所有 lines
+    final allLines = <TextLine>[];
+    for (final block in recognizedText.blocks) {
+      allLines.addAll(block.lines);
     }
 
-    return _cleanOcrText(allLines.join('\n'));
+    if (allLines.isEmpty) return '';
+
+    // 按 Y 坐标分组（公差：行高的 40%）
+    allLines.sort((a, b) {
+      final yDiff = a.boundingBox.top - b.boundingBox.top;
+      if (yDiff.abs() < a.boundingBox.height * 0.4) {
+        // Y 相近，按 X 排序
+        return a.boundingBox.left.compareTo(b.boundingBox.left);
+      }
+      return yDiff.compareTo(0);
+    });
+
+    // 分组：Y 坐标相近的归为同一行
+    final mergedLines = <String>[];
+    var currentGroup = [allLines.first];
+    var currentY = allLines.first.boundingBox.top;
+    final tolerance = allLines.first.boundingBox.height * 0.4;
+
+    for (int i = 1; i < allLines.length; i++) {
+      final line = allLines[i];
+      if ((line.boundingBox.top - currentY).abs() <= tolerance) {
+        currentGroup.add(line);
+      } else {
+        // 同组内按 X 排序后拼接
+        currentGroup.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+        mergedLines.add(currentGroup.map((l) => l.text).join(''));
+        currentGroup = [line];
+        currentY = line.boundingBox.top;
+      }
+    }
+    // 处理最后一组
+    currentGroup.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+    mergedLines.add(currentGroup.map((l) => l.text).join(''));
+
+    return _cleanOcrText(mergedLines.join('\n'));
   }
 
   String _cleanOcrText(String text) {
