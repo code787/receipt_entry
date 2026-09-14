@@ -1,7 +1,7 @@
 name: receipt_entry
 description: 安卓小票录入系统 - 支持小票录入、价格记录与查询、购买金额分析
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.12.2 <4.0.0'
